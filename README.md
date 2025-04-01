@@ -57,7 +57,7 @@
 
 1. قم بتنزيل أو استنساخ المستودع: 
    ```bash
-   git clone https://github.com/username/product-management-system.git
+   git clone https://github.com/AI8V/product-management-system.git
    ```
 2. انتقل إلى مجلد المشروع:
    ```bash
