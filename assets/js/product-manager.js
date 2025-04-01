@@ -85,12 +85,12 @@ form.addEventListener('submit', function(e) {
         if(+count.value > 1) {
             // Create multiple products
             for(let i = 0; i < count.value; i++) {
-                productData.unshift({...newProduct});
+                productData.push({...newProduct});
             }
             showAlert(`تم إنشاء ${count.value} منتجات بنجاح`, 'success');
         } else {
             // Create single product
-            productData.unshift(newProduct);
+            productData.push(newProduct);
             showAlert('تم إنشاء المنتج بنجاح', 'success');
         }
     }
