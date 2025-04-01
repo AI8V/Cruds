@@ -1,0 +1,39 @@
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: none;
+  padding: 1.5rem 1rem 0.5rem;
+}
+
+.product-form {
+  padding: 1.5rem;
+}
+
+.price-group {
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.total-display {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #198754;
+  padding: 0.5rem 1rem;
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.table-actions {
+  white-space: nowrap;
+}
+
+.alert-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+}
+
