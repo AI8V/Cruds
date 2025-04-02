@@ -242,9 +242,9 @@
                                             ${customerName || 'عميل نقدي'}
                                         </td>
                                         <td class="company-details">
-                                            اسم شركتك<br>
-                                            عنوان الشركة<br>
-                                            info@yourcompany.com
+                                            Ai8V Team<br>
+                                            Tanta-Egypt<br>
+                                            amr.omar304@gmail.com
                                         </td>
                                     </tr>
                                 </table>
