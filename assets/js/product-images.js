@@ -619,7 +619,7 @@
         };
     }
 
-        // 3. الربط مع حذف منتج واحد
+      // 3. الربط مع حذف منتج واحد
     function wrapDeleteProduct() {
         if (typeof window.deleteProduct !== 'function') return;
 
