@@ -131,12 +131,14 @@
             return sum + parseFloat(calculateLineTotal(item.product.total, item.quantity));
         }, 0));
 
+        // لاحظ التعديلات في متغير css أدناه
         const css = `
             body { font-family: sans-serif; direction: rtl; margin: 20px; }
             .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); font-size: 16px; line-height: 24px; color: #555; }
             .invoice-box table { width: 100%; line-height: inherit; text-align: right; border-collapse: collapse; }
             .invoice-box table td { padding: 5px; vertical-align: top; }
-            .invoice-box table tr td:nth-child(n+2) { text-align: left; }
+            /* --- تم حذف السطر التالي --- */
+            /* .invoice-box table tr td:nth-child(n+2) { text-align: left; } */
             .invoice-box table tr.top table td { padding-bottom: 20px; }
             .invoice-box table tr.top table td.title { font-size: 45px; line-height: 45px; color: #333; }
             .invoice-box table tr.information table td { padding-bottom: 40px; }
@@ -144,12 +146,14 @@
             .invoice-box table tr.details td { padding-bottom: 20px; text-align: right; }
             .invoice-box table tr.item td { border-bottom: 1px solid #eee; text-align: right; }
              .invoice-box table tr.item.last td { border-bottom: none; }
-            .invoice-box table tr.total td { border-top: 2px solid #eee; font-weight: bold; text-align: left;}
+            .invoice-box table tr.total td { border-top: 2px solid #eee; font-weight: bold; text-align: left;} /* الإجمالي الكلي يبقى يسار */
             .invoice-box table tr.item td:nth-child(1), .invoice-box table tr.heading td:nth-child(1) { text-align: right; width: 5%;} /* SN */
             .invoice-box table tr.item td:nth-child(2), .invoice-box table tr.heading td:nth-child(2) { text-align: right; width: 50%;} /* Desc */
-            .invoice-box table tr.item td:nth-child(3), .invoice-box table tr.heading td:nth-child(3) { text-align: center; width: 15%;} /* Price */
+            /* تم تعديل المحاذاة هنا */
+            .invoice-box table tr.item td:nth-child(3), .invoice-box table tr.heading td:nth-child(3) { text-align: right; width: 15%;} /* Price */
             .invoice-box table tr.item td:nth-child(4), .invoice-box table tr.heading td:nth-child(4) { text-align: center; width: 10%;} /* Qty */
-            .invoice-box table tr.item td:nth-child(5), .invoice-box table tr.heading td:nth-child(5) { text-align: left; width: 20%;} /* Total */
+            /* تم تعديل المحاذاة هنا */
+            .invoice-box table tr.item td:nth-child(5), .invoice-box table tr.heading td:nth-child(5) { text-align: right; width: 20%;} /* Line Total */
 
             @media print {
                 .invoice-box { box-shadow: none; border: none; }
