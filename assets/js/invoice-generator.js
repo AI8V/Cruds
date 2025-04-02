@@ -59,7 +59,7 @@
                 <td class="text-center">${formatCurrency(item.product.total)}</td>
                 <td class="text-center"><input type="number" class="form-control form-control-sm quantity-input mx-auto" value="${item.quantity}" min="1" style="width: 70px;" aria-label="كمية ${item.product.title}"></td>
                 <td class="line-total text-end">${calculateLineTotal(item.product.total, item.quantity)}</td>
-                <td class="text-center"><button class="btn btn-danger btn-sm remove-item-btn" title="إزالة ${item.product.title}"><i class="fas fa-times"></i></button></td> {/* Changed button content */}
+                <td class="text-center"><button class="btn btn-danger btn-sm remove-item-btn" title="إزالة ${item.product.title}"><i class="fas fa-times"></i></button></td>}
             `;
             tableBody.appendChild(row);
         });
