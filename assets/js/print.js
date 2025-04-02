@@ -7,18 +7,23 @@
 (function() {
     'use strict';
 
-    // --- إضافة أزرار الطباعة (لا تغيير هنا) ---
+    // --- إضافة أزرار الطباعة ---
     function addPrintButtons() {
+        const actionContainer = document.getElementById('actionButtonsContainer');
+        const deleteAllBtn = document.getElementById('deleteAllBtn'); // Reference point
+
         // زر طباعة القائمة
-        if (!document.getElementById('printBtn')) {
+        if (!document.getElementById('printListBtn')) {
             const printBtn = document.createElement('button');
-            printBtn.className = 'btn btn-secondary btn-sm me-2';
-            printBtn.id = 'printBtn';
+            printBtn.className = 'btn btn-secondary btn-sm me-2'; // Adjusted margin
+            printBtn.id = 'printListBtn';
             printBtn.innerHTML = '<i class="fas fa-print"></i> طباعة القائمة';
             printBtn.title = 'طباعة القائمة المعروضة حالياً';
             printBtn.addEventListener('click', printProductList);
-            const deleteAllBtn = document.getElementById('deleteAllBtn');
-            if (deleteAllBtn) {
+
+            if (actionContainer && deleteAllBtn) {
+                 actionContainer.insertBefore(printBtn, deleteAllBtn);
+            } else if(deleteAllBtn?.parentNode){
                 deleteAllBtn.parentNode.insertBefore(printBtn, deleteAllBtn);
             }
         }
@@ -26,17 +31,14 @@
         // زر طباعة بطاقة المنتج (في النموذج)
         addPrintButtonToForm();
 
-        // إضافة أزرار الطباعة لكل منتج (عبر تفويض الأحداث)
-        addPrintButtonsToTableRows();
+        // إضافة أزرار الطباعة لكل منتج (سيتم إضافتها ديناميكيًا)
+        setupTableRowPrintButtonInjection();
     }
 
     // --- طباعة قائمة المنتجات ---
     function printProductList() {
-        const visibleRows = document.querySelectorAll('#productTable tr');
-        const productData = getProductDataFromLocalStorage(); // قراءة البيانات مرة واحدة
-
-        // فلترة للحصول على بيانات المنتجات المرئية فقط
-        const visibleProductsData = getVisibleProductsData(visibleRows, productData);
+        const productData = getProductDataFromLocalStorage();
+        const visibleProductsData = getCurrentlyDisplayedProducts(productData); // Get data for visible rows
 
         if (visibleProductsData.length === 0) {
             showAlert('لا توجد منتجات للطباعة في القائمة الحالية', 'warning');
@@ -45,14 +47,15 @@
 
         // تحديد عنوان التقرير
         const searchInput = document.getElementById('searchInput');
-        const reportTitle = searchInput?.value ? `نتائج البحث: ${searchInput.value}` : 'قائمة جرد المنتجات';
+        const reportTitle = searchInput?.value ? `نتائج البحث عن: ${searchInput.value}` : 'قائمة جرد المنتجات';
 
         // جمع بيانات الطباعة
         let totalAmount = 0;
         const printRows = visibleProductsData.map((product, index) => {
             totalAmount += parseFloat(product.total || 0);
-            const productId = window.productImagesModule?.generateProductId?.(product); // استخدام الوحدة لجلب ID الصورة
-            const imageData = productId ? window.productImagesModule?.getProductImage?.(productId) : null; // جلب الصورة
+            // Use the exposed generateProductId function if available
+            const productId = window.productImagesModule?.generateProductId?.(product);
+            const imageData = productId ? window.productImagesModule?.getProductImage?.(productId) : null;
             return {
                 index: index + 1, // رقم تسلسلي للتقرير المطبوع
                 image: imageData,
@@ -70,7 +73,7 @@
         const printContent = generateListPrintHTML(reportTitle, printRows, totalAmount);
 
         // فتح نافذة الطباعة وكتابة المحتوى
-        openPrintWindow(printContent);
+        openPrintWindow(printContent, `print_list_${Date.now()}`);
     }
 
     // --- طباعة تفاصيل منتج واحد ---
@@ -90,8 +93,10 @@
         const printContent = generateDetailsPrintHTML(product, imageData);
 
         // فتح نافذة الطباعة
-        openPrintWindow(printContent);
+        openPrintWindow(printContent, `print_details_${productIndex}_${Date.now()}`);
     }
+     // Expose globally for mobile experience or other modules
+     window.printProductDetails = printProductDetails;
 
     // --- مساعدة: قراءة بيانات المنتج من التخزين بأمان ---
     function getProductDataFromLocalStorage() {
@@ -105,65 +110,92 @@
         }
     }
 
-    // --- مساعدة: الحصول على بيانات المنتجات المرئية في الجدول ---
-    function getVisibleProductsData(visibleRows, allProductData) {
-        const visibleProducts = [];
-        visibleRows.forEach(row => {
-            if (row.querySelector('td[colspan]') || !row.cells || row.cells.length < 8) { // تحقق من عدد الخلايا المتوقع
-                return; // تخطي الصفوف غير الصالحة
-            }
+    // --- مساعدة: الحصول على بيانات المنتجات المعروضة حالياً في الجدول ---
+    function getCurrentlyDisplayedProducts(allProductData) {
+         const visibleRows = document.querySelectorAll('#productTable tr:not(:has(td[colspan]))'); // Select only data rows
+         const visibleProducts = [];
 
-            // محاولة العثور على المؤشر من زر التعديل (لا يزال يعتمد على onclick)
-            const editBtn = row.querySelector('button[onclick*="editProduct"]');
-            const match = editBtn?.getAttribute('onclick')?.match(/editProduct\((\d+)\)/);
+         visibleRows.forEach(row => {
+             // Attempt to get index from edit button
+             const editBtn = row.querySelector('button[onclick*="editProduct"]');
+             const match = editBtn?.getAttribute('onclick')?.match(/editProduct\((\d+)\)/);
 
-            if (match && match[1]) {
-                const index = parseInt(match[1], 10);
-                if (allProductData[index]) {
-                    // تحقق إضافي (اختياري): قارن العنوان في الخلية مع البيانات
-                    const titleInCell = row.cells[2]?.textContent?.trim(); // العمود الثالث للاسم عادةً
-                    if (titleInCell === allProductData[index].title) {
-                        visibleProducts.push(allProductData[index]);
-                    } else {
-                         console.warn("Print.js: عدم تطابق بين بيانات الصف والبيانات المخزنة للمؤشر:", index, row);
-                    }
-                }
-            } else {
-                 console.warn("Print.js: لم يتم العثور على مؤشر منتج صالح للصف:", row);
-            }
-        });
-        return visibleProducts;
+             if (match && match[1]) {
+                 const index = parseInt(match[1], 10);
+                 if (allProductData[index]) {
+                     // Basic check: Compare title in cell (assuming cell index 2 after adding image column)
+                     const titleInCell = row.cells[2]?.textContent?.trim();
+                     if (titleInCell === allProductData[index].title) {
+                         visibleProducts.push(allProductData[index]);
+                     } else {
+                          // Fallback: If titles don't match (e.g., edited but table not refreshed?), still add if index is valid
+                          console.warn(`Print.js: Title mismatch for index ${index}, but adding anyway.`);
+                          visibleProducts.push(allProductData[index]);
+                     }
+                 }
+             } else {
+                 console.warn("Print.js: Could not extract valid product index from row:", row);
+             }
+         });
+
+         // If extraction failed, fallback to filtering based on search input
+         if (visibleProducts.length === 0 && visibleRows.length > 0) {
+             console.log("Print.js: Falling back to search filter for visible products.");
+             const searchInput = document.getElementById('searchInput');
+             const searchValue = searchInput ? searchInput.value.trim().toLowerCase() : '';
+             if (searchValue) {
+                 const searchTypeElement = document.querySelector('input[name="searchType"]:checked');
+                 const searchType = searchTypeElement ? searchTypeElement.id : 'searchAll';
+                 return allProductData.filter(item => {
+                     const titleMatch = item.title && item.title.toLowerCase().includes(searchValue);
+                     const categoryMatch = item.category && item.category.toLowerCase().includes(searchValue);
+                     if (searchType === 'searchTitle') return titleMatch;
+                     if (searchType === 'searchCategory') return categoryMatch;
+                     return titleMatch || categoryMatch; // searchAll
+                 });
+             } else {
+                  // If no search term, but rows were visible, assume all data is visible
+                  return allProductData;
+             }
+         }
+
+
+         return visibleProducts;
     }
 
 
     // --- مساعدة: إنشاء HTML لطباعة القائمة ---
     function generateListPrintHTML(title, rows, totalAmount) {
-        // تحسين CSS قليلاً
+        // تحسين CSS
         const css = `
-            @media print { @page { size: A4; margin: 1cm; } }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; direction: rtl; }
+            @media print {
+                @page { size: A4; margin: 1cm; }
+                body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                .print-footer, .no-print { display: none !important; }
+            }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.4; color: #333; direction: rtl; }
             .container { max-width: 98%; margin: 0 auto; padding: 15px; }
-            .print-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #007bff; }
-            h1 { font-size: 22px; color: #0056b3; margin-bottom: 8px; }
-            .print-info { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; page-break-inside: auto; font-size: 12px; }
+            .print-header { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #007bff; }
+            h1 { font-size: 20px; color: #0056b3; margin-bottom: 5px; }
+            .print-info { display: flex; justify-content: space-between; font-size: 12px; color: #555; margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; page-break-inside: auto; font-size: 11px; }
             tr { page-break-inside: avoid; page-break-after: auto; }
-            th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: right; vertical-align: middle; }
-            th { background-color: #e9ecef; font-weight: 600; color: #495057; }
-            .summary { margin-top: 25px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 14px; }
-            .summary p { margin: 5px 0; }
-            .print-footer { text-align: center; margin-top: 30px; font-size: 11px; color: #888; }
-            .total-column { font-weight: bold; background-color: #f8f9fa; }
-            .product-image-print { max-width: 40px; max-height: 40px; object-fit: cover; display: block; margin: auto; border-radius: 3px; }
-            .no-image-print { width: 40px; height: 40px; background-color: #f0f0f0; color: #bbb; display: flex; align-items: center; justify-content: center; font-size: 1.1em; margin: auto; border-radius: 3px; }
-            td.image-cell { width: 55px; text-align: center; padding: 4px; } /* خلية الصورة */
+            th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: right; vertical-align: middle; }
+            th { background-color: #e9ecef !important; font-weight: 600; color: #495057; } /* Added !important for print */
+            .summary { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 13px; }
+            .summary p { margin: 4px 0; }
+            .print-footer { text-align: center; margin-top: 25px; font-size: 10px; color: #888; }
+            .total-column { font-weight: bold; background-color: #f8f9fa !important; } /* Added !important for print */
+            .product-image-print { max-width: 40px; max-height: 40px; object-fit: contain; display: block; margin: auto; border-radius: 3px; background-color: #fff; }
+            .no-image-print { width: 40px; height: 40px; background-color: #f0f0f0 !important; color: #bbb; display: flex; align-items: center; justify-content: center; font-size: 1.1em; margin: auto; border-radius: 3px; }
+            td.image-cell { width: 55px; text-align: center; padding: 3px; } /* خلية الصورة */
         `;
 
         // بناء الجدول
         let tableRowsHTML = '';
         rows.forEach(row => {
             const imageHTML = row.image
-                ? `<img src="${row.image}" alt="صورة" class="product-image-print">`
+                ? `<img src="${row.image}" alt="" class="product-image-print">` // Alt empty for decoration
                 : `<div class="no-image-print" title="لا توجد صورة">-</div>`;
             tableRowsHTML += `
                 <tr>
@@ -216,8 +248,13 @@
                     </div>
                     <div class="print-footer">تم إنشاؤه بواسطة نظام إدارة المنتجات</div>
                 </div>
-                <script>
-                    window.onload = function() { setTimeout(window.print, 500); };
+                 <script>
+                    // Ensure print is called after content is fully rendered
+                    window.addEventListener('load', () => {
+                      setTimeout(() => window.print(), 500); // Delay allows images to load
+                    });
+                    // Optional: close window after printing
+                    // window.addEventListener('afterprint', () => window.close());
                 </script>
             </body></html>
         `;
@@ -226,23 +263,27 @@
     // --- مساعدة: إنشاء HTML لبطاقة المنتج ---
     function generateDetailsPrintHTML(product, imageData) {
         const css = `
-            @media print { @page { size: A5 landscape; margin: 1cm; } } /* تغيير حجم الصفحة */
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; direction: rtl; }
+            @media print {
+                @page { size: A5 landscape; margin: 1cm; }
+                body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                 .print-footer, .no-print { display: none !important; }
+            }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5; color: #333; direction: rtl; }
             .container { max-width: 95%; margin: 0 auto; padding: 15px; }
-            .product-card { border: 1px solid #007bff; border-radius: 8px; padding: 20px; display: flex; flex-direction: row; gap: 20px; align-items: flex-start; }
-            .product-image-details { width: 150px; height: 150px; object-fit: contain; border: 1px solid #eee; border-radius: 5px; padding: 5px; background-color: #fff; align-self: center; }
-            .no-image-details { width: 150px; height: 150px; background-color: #f8f9fa; color: #adb5bd; display: flex; align-items: center; justify-content: center; font-size: 2em; border: 1px solid #eee; border-radius: 5px; align-self: center; }
+            .product-card { border: 1px solid #007bff; border-radius: 8px; padding: 15px; display: flex; flex-direction: row; gap: 15px; align-items: flex-start; background-color: #fff !important; }
+            .product-image-details { width: 130px; height: 130px; object-fit: contain; border: 1px solid #eee; border-radius: 5px; padding: 5px; background-color: #fff !important; align-self: center; }
+            .no-image-details { width: 130px; height: 130px; background-color: #f8f9fa !important; color: #adb5bd; display: flex; align-items: center; justify-content: center; font-size: 2em; border: 1px solid #eee; border-radius: 5px; align-self: center; }
             .product-info { flex-grow: 1; }
-            .product-title { font-size: 20px; font-weight: 600; color: #0056b3; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
-            .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 15px; margin-bottom: 15px; font-size: 13px; }
-            .detail-item { padding-bottom: 5px; border-bottom: 1px dotted #ddd; }
+            .product-title { font-size: 18px; font-weight: 600; color: #0056b3; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+            .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px 12px; margin-bottom: 12px; font-size: 12px; }
+            .detail-item { padding-bottom: 4px; border-bottom: 1px dotted #ddd; }
             .detail-label { font-weight: 600; color: #555; margin-left: 5px; }
-            .total-price { font-size: 18px; font-weight: bold; text-align: center; padding: 10px; margin-top: 15px; background-color: #e9ecef; border-radius: 5px; color: #0056b3; }
-            .print-footer { text-align: center; margin-top: 25px; font-size: 11px; color: #999; }
+            .total-price { font-size: 16px; font-weight: bold; text-align: center; padding: 8px; margin-top: 12px; background-color: #e9ecef !important; border-radius: 5px; color: #0056b3; }
+            .print-footer { text-align: center; margin-top: 20px; font-size: 10px; color: #999; }
         `;
 
         const imageHTML = imageData
-            ? `<img src="${imageData}" alt="صورة المنتج" class="product-image-details">`
+            ? `<img src="${imageData}" alt="" class="product-image-details">` // Alt empty
             : `<div class="no-image-details" title="لا توجد صورة">?</div>`;
 
         return `
@@ -267,18 +308,24 @@
                     </div>
                     <div class="print-footer">نظام إدارة المنتجات - ${new Date().toLocaleDateString('ar-SA')}</div>
                 </div>
-                <script>
-                    window.onload = function() { setTimeout(window.print, 500); };
-                </script>
+                 <script>
+                     window.addEventListener('load', () => {
+                       setTimeout(() => window.print(), 500); // Delay allows images to load
+                     });
+                      // Optional: close window after printing
+                      // window.addEventListener('afterprint', () => window.close());
+                 </script>
             </body></html>
         `;
     }
 
 
     // --- مساعدة: فتح نافذة الطباعة ---
-    function openPrintWindow(content) {
+    function openPrintWindow(content, windowName = '_blank') {
         try {
-            const printWindow = window.open('', '_blank', 'width=1000,height=700,scrollbars=yes,resizable=yes');
+            // Use a unique name for each print window to avoid issues if multiple are opened
+            const uniqueWindowName = `printWindow_${windowName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            const printWindow = window.open('', uniqueWindowName, 'width=1000,height=700,scrollbars=yes,resizable=yes');
             if (!printWindow) {
                  showAlert('فشل فتح نافذة الطباعة. يرجى التأكد من السماح بالنوافذ المنبثقة لهذا الموقع.', 'danger');
                  return;
@@ -286,31 +333,38 @@
             printWindow.document.open();
             printWindow.document.write(content);
             printWindow.document.close();
-             // لا حاجة لاستدعاء الطباعة من هنا، لأنها تتم عبر window.onload داخل النافذة نفسها
+             // Print command is now inside the generated HTML's onload event
         } catch (e) {
              console.error("Print.js: خطأ في فتح نافذة الطباعة:", e);
              showAlert('حدث خطأ أثناء محاولة فتح نافذة الطباعة.', 'danger');
         }
     }
 
-    // --- مساعدة: إضافة زر الطباعة للمنتج المحدد في نموذج التعديل (لا تغيير) ---
+    // --- مساعدة: إضافة زر الطباعة للمنتج المحدد في نموذج التعديل ---
     function addPrintButtonToForm() {
         const form = document.getElementById('productForm');
         const submitBtn = document.getElementById('submitBtn');
-        const buttonContainer = submitBtn?.parentNode; // حاوية الأزرار
+        const buttonContainer = submitBtn?.parentNode; // Container of submit/clear buttons
 
         if (form && submitBtn && buttonContainer && !document.getElementById('printCurrentBtn')) {
             const printCurrentBtn = document.createElement('button');
-            printCurrentBtn.className = 'btn btn-outline-info mt-2'; // تغيير اللون لتمييزه
+            printCurrentBtn.className = 'btn btn-outline-info mt-2 d-none'; // Hidden initially
             printCurrentBtn.type = 'button';
             printCurrentBtn.id = 'printCurrentBtn';
             printCurrentBtn.innerHTML = '<i class="fas fa-id-card"></i> طباعة بطاقة المنتج الحالي';
-            printCurrentBtn.style.display = 'none'; // إخفاء مبدئي
             printCurrentBtn.title = 'طباعة تفاصيل المنتج الذي يتم تعديله حالياً';
 
-            buttonContainer.appendChild(printCurrentBtn); // إضافة الزر داخل حاوية الأزرار الأخرى
+            // Insert after the clear button
+            const clearBtn = document.getElementById('clearBtn');
+             if (clearBtn) {
+                clearBtn.insertAdjacentElement('afterend', printCurrentBtn);
+             } else {
+                 buttonContainer.appendChild(printCurrentBtn);
+             }
+
 
             printCurrentBtn.addEventListener('click', function() {
+                // Assumes 'tmp' and 'mode' are global vars from product-manager.js
                 if (window.mode === 'update' && typeof window.tmp === 'number') {
                     printProductDetails(window.tmp);
                 } else {
@@ -318,38 +372,27 @@
                 }
             });
 
-            // مراقبة تغيير وضع التحرير
-             // استخدام MutationObserver لرصد التغييرات في زر الإرسال (لتحديد وضع التحديث)
-             const observerCallback = (mutationsList, observer) => {
-                for (const mutation of mutationsList) {
-                    // التحقق من تغيير النص أو السمة التي تدل على وضع التحديث
-                    // نفترض هنا أن نص الزر يتغير إلى "تحديث المنتج"
-                    const isUpdateMode = submitBtn.textContent.includes('تحديث');
-                    printCurrentBtn.style.display = isUpdateMode ? 'block' : 'none';
-                    // يمكنك إضافة تحققات أخرى إذا لزم الأمر
-                    break; // يكفي التحقق من أول تغيير
-                }
-            };
-            const observer = new MutationObserver(observerCallback);
-             // مراقبة تغيير النص داخل الزر
-            observer.observe(submitBtn, { childList: true, characterData: true, subtree: true });
+            // Expose function to update visibility
+             window.updatePrintCurrentButtonVisibility = (show) => {
+                 printCurrentBtn.style.display = show ? 'inline-block' : 'none';
+             };
 
-             // التحقق من الحالة الأولية عند التحميل
-             printCurrentBtn.style.display = submitBtn.textContent.includes('تحديث') ? 'block' : 'none';
+            // Initial check (in case page loads in update mode)
+             window.updatePrintCurrentButtonVisibility(window.mode === 'update');
         }
     }
 
     // --- مساعدة: إضافة أزرار الطباعة لصفوف الجدول (استخدام تفويض الأحداث) ---
-    function addPrintButtonsToTableRows() {
+    function setupTableRowPrintButtonInjection() {
         const tableBody = document.getElementById('productTable');
         if (!tableBody) return;
 
+        // Event delegation for clicks on print buttons within the table body
         tableBody.addEventListener('click', function(e) {
-            // استهداف زر طباعة المنتج الصغير إذا تم النقر عليه مباشرة أو على الأيقونة داخله
             const printButton = e.target.closest('.print-product-btn');
             if (printButton) {
                 e.preventDefault();
-                e.stopPropagation();
+                e.stopPropagation(); // Prevent triggering row clicks if any
                 const productIndex = parseInt(printButton.getAttribute('data-product-index') || '-1', 10);
                 if (productIndex !== -1) {
                     printProductDetails(productIndex);
@@ -360,68 +403,50 @@
             }
         });
 
-         // نحتاج أيضًا لتحديث الأزرار عند إعادة رسم الجدول
-         // يمكن استخدام نفس MutationObserver الخاص بوحدة الصور أو الشعبية إذا كانت موجودة،
-         // أو إنشاء واحد جديد هنا لمراقبة الصفوف وإضافة الأزرار.
-         // كحل أبسط، سنضيف الأزرار عند استدعاء showProducts في product-manager.js
-         // (يتطلب تعديل بسيط هناك) أو نعتمد على إعادة رسم الجدول بالكامل.
-         // الحل الأكثر نظافة هنا هو استخدام Observer.
-         const tableObserver = new MutationObserver(injectPrintButtonsIntoRows);
-         tableObserver.observe(tableBody, { childList: true });
-         // حقن الأزرار في الصفوف الحالية عند التهيئة
-         injectPrintButtonsIntoRows([{ target: tableBody }]); // محاكاة حدث أول
+         // Expose the injection function to be called by product-manager after showProducts
+         window.injectPrintButtonsIntoRows = injectPrintButtonsIntoRows;
     }
 
-     // حقن زر الطباعة في صفوف الجدول
-    function injectPrintButtonsIntoRows(mutationsList) {
-        const rows = document.querySelectorAll('#productTable tr:not(:has(td[colspan]))'); // استهداف صفوف المنتج فقط
+     // Injects print buttons into currently visible table rows
+    function injectPrintButtonsIntoRows() {
+        const rows = document.querySelectorAll('#productTable tr:not(:has(td[colspan]))'); // Target only data rows
         rows.forEach(row => {
-             const actionsCell = row.cells[row.cells.length - 1]; // خلية الإجراءات هي الأخيرة عادة
+             const actionsCell = row.cells[row.cells.length - 1]; // Actions cell is usually last
              if (actionsCell && !actionsCell.querySelector('.print-product-btn')) {
-                 // الحصول على المؤشر من زر التعديل
+                 // Get index from the edit button within the same cell
                  const editBtn = actionsCell.querySelector('button[onclick*="editProduct"]');
                  const match = editBtn?.getAttribute('onclick')?.match(/editProduct\((\d+)\)/);
                  if (match && match[1]) {
                      const productIndex = match[1];
                      const printProductBtn = document.createElement('button');
-                     printProductBtn.className = 'btn btn-sm btn-outline-secondary print-product-btn mx-1'; // تغيير اللون
-                     printProductBtn.innerHTML = '<i class="fas fa-address-card"></i>'; // تغيير الأيقونة
+                     printProductBtn.className = 'btn btn-sm btn-outline-secondary print-product-btn mx-1';
+                     printProductBtn.innerHTML = '<i class="fas fa-print"></i>'; // Changed icon
                      printProductBtn.title = 'طباعة بطاقة هذا المنتج';
-                     printProductBtn.setAttribute('data-product-index', productIndex); // تخزين المؤشر
-                     // يتم التعامل مع النقر عبر event delegation أعلاه
+                     printProductBtn.setAttribute('data-product-index', productIndex);
 
-                     // إضافة الزر قبل زر الحذف (إذا وجد) أو في نهاية الخلية
-                     const deleteBtn = actionsCell.querySelector('.btn-danger');
-                     if (deleteBtn) {
-                         actionsCell.insertBefore(printProductBtn, deleteBtn);
-                     } else {
-                         actionsCell.appendChild(printProductBtn);
-                     }
+                     // Insert before the edit button for better grouping
+                     actionsCell.insertBefore(printProductBtn, editBtn);
                  }
              }
         });
     }
 
 
-    // --- مساعدة: عرض التنبيهات (لا تغيير) ---
+    // --- مساعدة: عرض التنبيهات ---
     function showAlert(message, type = 'info') {
         if (typeof window.showAlert === 'function') {
-            window.showAlert(message, type);
+            window.showAlert(message, type); // Use global alert
         } else {
-            console.warn("Print.js: دالة showAlert العامة غير متاحة.", message);
-            alert(`${type.toUpperCase()}: ${message}`); // بديل بسيط
+            console.warn("Print.js: Global showAlert function not available.", message);
+            alert(`${type.toUpperCase()}: ${message}`); // Simple fallback
         }
     }
 
     // --- تهيئة الوحدة ---
-    // نستخدم DOMContentLoaded لضمان تحميل العناصر الأساسية قبل إضافة الأزرار
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', addPrintButtons);
     } else {
-        addPrintButtons(); // إذا تم تحميل DOM بالفعل
+        addPrintButtons(); // If DOM already loaded
     }
-
-    // جعل دالة طباعة البطاقة متاحة عالميًا إذا احتاجتها وحدات أخرى (نادرًا ما يكون ضروريًا)
-    // window.printProductCard = printProductDetails;
 
 })();

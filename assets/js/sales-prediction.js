@@ -6,94 +6,152 @@
     // إضافة زر التنبؤ الذكي إلى الواجهة
     function addSalesPredictionButton() {
         const predictionBtn = document.createElement('button');
-        predictionBtn.className = 'btn btn-warning btn-sm me-2';
+        predictionBtn.className = 'btn btn-warning btn-sm me-2'; // Adjusted margin
+        predictionBtn.id = 'salesPredictBtn';
         predictionBtn.innerHTML = '<i class="fas fa-chart-line"></i> تنبؤ المبيعات';
-        predictionBtn.addEventListener('click', generateSalesPrediction);
-        
-        // إضافة الزر بجانب أزرار التصدير والتحليلات
-        const deleteAllBtn = document.getElementById('deleteAllBtn');
-        if (deleteAllBtn) deleteAllBtn.parentNode.insertBefore(predictionBtn, deleteAllBtn);
+        predictionBtn.title = 'إنشاء توقعات للمبيعات المستقبلية';
+        predictionBtn.addEventListener('click', showSalesPredictionModal);
+
+        // إضافة الزر إلى حاوية الأزرار الرئيسية
+        const actionContainer = document.getElementById('actionButtonsContainer');
+        const deleteAllBtn = document.getElementById('deleteAllBtn'); // Reference point
+        if (actionContainer && deleteAllBtn) {
+            actionContainer.insertBefore(predictionBtn, deleteAllBtn);
+        } else if(deleteAllBtn?.parentNode) {
+            // Fallback
+             deleteAllBtn.parentNode.insertBefore(predictionBtn, deleteAllBtn);
+        }
+
+        // إنشاء النافذة المنبثقة
+        createPredictionModal();
     }
-    
-    // توليد تنبؤات ذكية للمبيعات
-    function generateSalesPrediction() {
-        const productData = JSON.parse(localStorage.getItem('productData')) || [];
-        
-        if (productData.length < 3) {
-            showAlert('يجب توفر ٣ منتجات على الأقل لإنشاء تنبؤات دقيقة', 'warning');
-            return;
-        }
-        
-        // تحليل البيانات وإنشاء تنبؤات بالمبيعات المتوقعة
-        const currentDate = new Date();
-        const totalValue = productData.reduce((sum, product) => sum + parseFloat(product.total || 0), 0);
-        const avgPrice = totalValue / productData.length;
-        
-        // إنشاء تنبؤات للأشهر الستة القادمة (باستخدام خوارزمية بسيطة)
-        const predictions = [];
-        let monthlyGrowth = 1.05 + (Math.random() * 0.1); // معدل نمو شهري عشوائي بين 5-15%
-        
-        for (let i = 1; i <= 6; i++) {
-            const nextMonth = new Date(currentDate);
-            nextMonth.setMonth(currentDate.getMonth() + i);
-            
-            const monthName = nextMonth.toLocaleDateString('ar-EG', { month: 'long' });
-            const predictedSales = Math.round(totalValue * Math.pow(monthlyGrowth, i));
-            
-            predictions.push({
-                month: monthName,
-                sales: predictedSales
-            });
-        }
-        
-        // عرض النتائج في نافذة منبثقة
-        const predictionsHTML = `
-            <div class="modal fade" id="predictionsModal" tabindex="-1" aria-hidden="true">
+
+    // إنشاء النافذة المنبثقة للتنبؤات
+    function createPredictionModal() {
+        if (document.getElementById('predictionsModal')) return;
+
+        const modalHTML = `
+            <div class="modal fade" id="predictionsModal" tabindex="-1" aria-labelledby="predictionsModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title">توقعات المبيعات للأشهر القادمة</h5>
+                            <h5 class="modal-title" id="predictionsModalLabel">توقعات المبيعات للأشهر القادمة</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body">
-                            <p class="text-center mb-3">بناءً على تحليل ${productData.length} منتج بقيمة إجمالية ${totalValue}</p>
-                            <ul class="list-group">
-                                ${predictions.map(p => `
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        ${p.month}
-                                        <span class="badge bg-warning text-dark">${p.sales}</span>
-                                    </li>
-                                `).join('')}
-                            </ul>
-                            <div class="alert alert-info mt-3">
-                                <small>ملاحظة: هذه التنبؤات تقديرية وتعتمد على البيانات الحالية والاتجاهات المتوقعة</small>
+                        <div class="modal-body" id="predictionsBody">
+                            <!-- Content will be loaded here -->
+                             <div class="text-center p-5">
+                                <div class="spinner-border text-warning" role="status">
+                                    <span class="visually-hidden">جاري التحميل...</span>
+                                </div>
                             </div>
                         </div>
+                         <div class="modal-footer">
+                             <small class="text-muted me-auto">ملاحظة: هذه التنبؤات تقديرية وتعتمد على البيانات الحالية.</small>
+                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
-        // إضافة النافذة إلى الصفحة وعرضها
-        document.body.insertAdjacentHTML('beforeend', predictionsHTML);
-        const modal = new bootstrap.Modal(document.getElementById('predictionsModal'));
-        modal.show();
-        
-        // إزالة العنصر من DOM بعد إغلاق النافذة
-        document.getElementById('predictionsModal').addEventListener('hidden.bs.modal', function() {
-            this.remove();
-        });
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+         // Cleanup on close
+         const modalElement = document.getElementById('predictionsModal');
+         modalElement?.addEventListener('hidden.bs.modal', function() {
+             document.getElementById('predictionsBody').innerHTML = ` <div class="text-center p-5">
+                                <div class="spinner-border text-warning" role="status">
+                                    <span class="visually-hidden">جاري التحميل...</span>
+                                </div>
+                            </div>`; // Reset body
+         });
     }
-    
-    // دالة مساعدة لعرض الإشعارات
-    function showAlert(message, type) {
-        if (window.showAlert) {
+
+
+    // عرض نافذة التنبؤات
+    function showSalesPredictionModal() {
+        const modalElement = document.getElementById('predictionsModal');
+        if (!modalElement) return;
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modal.show();
+
+        // تأخير بسيط للسماح للنافذة بالظهور قبل توليد البيانات
+        setTimeout(generateSalesPrediction, 200);
+    }
+
+
+    // توليد تنبؤات ذكية للمبيعات وعرضها
+    function generateSalesPrediction() {
+        const predictionsBody = document.getElementById('predictionsBody');
+        if (!predictionsBody) return;
+
+        const productData = JSON.parse(localStorage.getItem('productData')) || [];
+
+        if (productData.length < 3) {
+            predictionsBody.innerHTML = '<div class="alert alert-warning">يجب توفر ٣ منتجات على الأقل لإنشاء تنبؤات دقيقة.</div>';
+            return;
+        }
+
+        // تحليل البيانات وإنشاء تنبؤات بالمبيعات المتوقعة
+        const currentDate = new Date();
+        // استخدام السعر الإجمالي للمنتج (total) كأساس للقيمة
+        const totalValue = productData.reduce((sum, product) => sum + parseFloat(product.total || 0), 0);
+        const avgProductValue = totalValue / productData.length;
+
+        // إنشاء تنبؤات للأشهر الستة القادمة (باستخدام خوارزمية نمو بسيطة)
+        const predictions = [];
+        // معدل نمو شهري (يمكن جعله أكثر تعقيدًا بناءً على بيانات تاريخية إن وجدت)
+        // يبدأ بمعدل أساسي ويتأثر قليلاً بعدد المنتجات ومتوسط قيمتها (افتراضات بسيطة)
+        let monthlyGrowth = 1.03 + (productData.length / 1000) + (avgProductValue / 5000);
+        monthlyGrowth = Math.min(Math.max(monthlyGrowth, 1.01), 1.15); // Clamp between 1% and 15% growth
+
+        let currentPredictedValue = totalValue;
+
+        for (let i = 1; i <= 6; i++) {
+            const nextMonth = new Date(currentDate);
+            nextMonth.setMonth(currentDate.getMonth() + i);
+
+            const monthName = nextMonth.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+            // تطبيق النمو على القيمة الحالية
+            currentPredictedValue *= monthlyGrowth;
+
+            predictions.push({
+                month: monthName,
+                salesValue: Math.round(currentPredictedValue) // قيمة المبيعات المتوقعة لذلك الشهر
+            });
+
+             // إضافة بعض العشوائية الطفيفة للتنبؤات لتبدو أقل خطية
+             monthlyGrowth *= (0.98 + Math.random() * 0.04); // Fluctuate growth slightly each month
+        }
+
+        // عرض النتائج في النافذة المنبثقة
+        const predictionsHTML = `
+            <p class="text-center mb-3">بناءً على تحليل <strong>${productData.length}</strong> منتج بقيمة إجمالية حالية <strong>${totalValue.toFixed(2)}</strong>.</p>
+            <h6 class="text-center mb-3">القيمة الإجمالية المتوقعة للمبيعات:</h6>
+            <ul class="list-group">
+                ${predictions.map(p => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${p.month}
+                        <span class="badge bg-warning text-dark rounded-pill">${p.salesValue.toFixed(2)}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+
+        predictionsBody.innerHTML = predictionsHTML;
+    }
+
+    // دالة مساعدة لعرض الإشعارات - تستخدم النسخة العامة
+    function showAlert(message, type = 'info') {
+         if (typeof window.showAlert === 'function') {
             window.showAlert(message, type);
         } else {
-            alert(message);
+            console.warn("Global showAlert function not found. Falling back to alert.");
+            alert(message); // Fallback
         }
     }
-    
+
     // تنفيذ الميزة عند تحميل الصفحة
-    window.addEventListener('load', addSalesPredictionButton);
+    window.addEventListener('DOMContentLoaded', addSalesPredictionButton);
 })();

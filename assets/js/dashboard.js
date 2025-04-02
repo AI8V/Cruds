@@ -113,7 +113,7 @@
         // Combine all parts
         dashboardContainer.innerHTML = `
             <div class="card shadow-sm">
-                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="h5 mb-0">لوحة التحكم</h4>
                     <button class="btn btn-sm btn-outline-secondary" id="refreshDashboardBtn" title="تحديث البيانات">
                         <i class="fas fa-sync-alt"></i>
@@ -213,7 +213,7 @@
         if (products.length === 0 && dashboardContainer) {
              dashboardContainer.innerHTML = `
                 <div class="card shadow-sm">
-                     <div class="card-header bg-light"><h4 class="h5 mb-0">لوحة التحكم</h4></div>
+                     <div class="card-header h4 mb-0">لوحة التحكم</h4></div>
                      <div class="card-body">
                         <p class="text-muted text-center py-5">لا توجد بيانات منتجات لعرض لوحة التحكم.</p>
                      </div>
