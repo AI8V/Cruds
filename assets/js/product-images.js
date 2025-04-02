@@ -619,28 +619,58 @@
         };
     }
 
-    // 3. الربط مع حذف منتج واحد
+        // 3. الربط مع حذف منتج واحد
     function wrapDeleteProduct() {
-         if (typeof window.deleteProduct !== 'function') return;
+        if (typeof window.deleteProduct !== 'function') return;
 
-         const originalDeleteProduct = window.deleteProduct;
-         window.deleteProduct = function(index) {
-             // أولاً، تحديد المنتج وحذف صورته المرتبطة إن وجدت
-             const productData = JSON.parse(localStorage.getItem('productData') || '[]');
-             if (productData[index]) {
-                 const product = productData[index];
-                 const productId = generateProductId(product);
-                 if (productImages[productId]) {
-                     delete productImages[productId];
-                     saveImagesToStorage();
-                     console.log(`تم حذف الصورة المرتبطة بالمنتج ${productId} في المؤشر ${index}`);
-                 }
-             }
+        const originalDeleteProduct = window.deleteProduct;
+        window.deleteProduct = function(index) {
+            const productData = JSON.parse(localStorage.getItem('productData') || '[]');
 
-             // الآن، استدعاء دالة الحذف الأصلية
-             originalDeleteProduct(index);
-             // لا حاجة لتحديث الجدول هنا، يفترض أن `originalDeleteProduct` تستدعي `showProducts`
-         };
+            // التحقق من وجود المنتج قبل محاولة حذفه
+            if (!productData[index]) {
+                console.error(`wrapDeleteProduct: المنتج بالمؤشر ${index} غير موجود.`);
+                // ربما استدعاء الدالة الأصلية للسماح بمعالجة الخطأ هناك؟
+                originalDeleteProduct(index);
+                return;
+            }
+
+            const productToDelete = productData[index];
+            const productIdToDelete = generateProductId(productToDelete);
+
+            // تحقق مما إذا كانت هناك صورة مرتبطة بهذا المعرف
+            if (productImages[productIdToDelete]) {
+                // قبل الحذف، تحقق مما إذا كانت هناك منتجات أخرى *متبقية* تستخدم نفس معرف الصورة
+                let isImageUsedByOthers = false;
+                for (let i = 0; i < productData.length; i++) {
+                    // تخطي المنتج الذي نحن بصدد حذفه
+                    if (i === index) continue;
+
+                    const otherProduct = productData[i];
+                    const otherProductId = generateProductId(otherProduct);
+
+                    if (otherProductId === productIdToDelete) {
+                        isImageUsedByOthers = true;
+                        break; // وجدنا منتجًا آخر يستخدم نفس الصورة، لا داعي للمتابعة
+                    }
+                }
+
+                // احذف الصورة فقط إذا لم تكن هناك منتجات أخرى تستخدمها
+                if (!isImageUsedByOthers) {
+                    console.log(`حذف الصورة ${productIdToDelete} لأن هذا هو آخر منتج يستخدمها.`);
+                    delete productImages[productIdToDelete];
+                    saveImagesToStorage(); // حفظ التغييرات فقط إذا تم الحذف
+                } else {
+                    console.log(`الإبقاء على الصورة ${productIdToDelete} لأن ${isImageUsedByOthers ? 'منتجات أخرى' : 'لا منتجات أخرى'} لا تزال تستخدمها.`);
+                }
+            } else {
+                // console.log(`لا توجد صورة مرتبطة بالمعرف ${productIdToDelete} ليتم حذفها.`);
+            }
+
+            // الآن، استدعاء دالة الحذف الأصلية لحذف بيانات المنتج نفسه
+            originalDeleteProduct(index);
+            // لا حاجة لتحديث الجدول هنا، يفترض أن `originalDeleteProduct` تستدعي `showProducts`
+        };
     }
 
     // 4. الربط مع حذف جميع المنتجات
